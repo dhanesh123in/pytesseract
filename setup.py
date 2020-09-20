@@ -1,6 +1,9 @@
 import os
 
-from setuptools import setup
+from setuptools import setup, find_packages
+from setuptools.command.develop import develop
+from setuptools.command.install import install
+import subprocess
 
 README_PATH = 'README.rst'
 LONG_DESC = ''
@@ -11,6 +14,31 @@ if os.path.exists(README_PATH):
 INSTALL_REQUIRES = ['Pillow']
 PACKAGE_NAME = 'pytesseract'
 PACKAGE_DIR = 'src'
+
+# https://blog.niteo.co/setuptools-run-custom-code-in-setup-py/
+
+def customRun(subclass):
+    old_run = subclass.run
+    def new_run(self):
+        try:
+            # Only for ubuntu Docker builds as of now
+            subprocess.check_call(["apt-get","-y","update"])
+            subprocess.check_call(["apt-get","-y","install","tesseract-ocr"])
+            subprocess.check_call(["apt-get","-y","install","tesseract-ocr-all"])
+        except:
+            pass
+        old_run(self)
+    
+    subclass.run=new_run
+    return subclass
+
+@customRun
+class customDevelop(develop):
+    pass
+
+@customRun
+class customInstall(install):
+    pass
 
 setup(
     name=PACKAGE_NAME,
@@ -26,12 +54,17 @@ setup(
     license='Apache License 2.0',
     keywords='python-tesseract OCR Python',
     url='https://github.com/madmaze/pytesseract',
-    packages=[PACKAGE_NAME],
-    package_dir={PACKAGE_NAME: PACKAGE_DIR},
-    include_package_data=True,
+    packages=find_packages(),
+    #packages=[PACKAGE_NAME],
+    #package_dir={PACKAGE_NAME: PACKAGE_DIR},
+    #include_package_data=True,
     install_requires=INSTALL_REQUIRES,
     entry_points={
         'console_scripts': ['{0} = {0}.{0}:main'.format(PACKAGE_NAME)],
+    },
+    cmdclass={
+        'develop': customDevelop,
+        'install': customInstall,
     },
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
